@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "topic": "Dérivée de x²",
+  "title": "Pourquoi la dérivée de x² vaut 2x",
+  "goal": "Comprendre pourquoi la dérivée de f(x) = x² est f′(x) = 2x, sans mémoriser la formule.",
+  "summary": "On part de la pente d'une droite, on la resserre autour d'un point pour obtenir une pente instantanée, puis on calcule la limite du taux de variation de x². Chaque pas ne suppose que le précédent.",
+  "level": "lycée",
+  "assumptions": [
+    "Savoir lire un point dans un repère cartésien.",
+    "Savoir développer (a + b)².",
+    "Savoir calculer une différence et diviser par un nombre non nul."
+  ],
+  "goalPropositionId": "p-derivee",
+  "plan": {
+    "nodes": [
+      {
+        "id": "pente-droite",
+        "title": "La pente d'une droite",
+        "summary": "Le rapport entre la variation verticale et la variation horizontale."
+      },
+      {
+        "id": "developpement",
+        "title": "Développer (x + h)²",
+        "summary": "L'identité algébrique qui permet de comparer x² en deux points voisins."
+      },
+      {
+        "id": "pente-instantanee",
+        "title": "La pente en un point",
+        "summary": "Passer de la pente moyenne entre deux points à la pente locale, par une limite."
+      },
+      {
+        "id": "taux-variation",
+        "title": "Le taux de variation de x²",
+        "summary": "Calculer et simplifier la pente entre x et x + h."
+      },
+      {
+        "id": "derivee-2x",
+        "title": "La dérivée de x²",
+        "summary": "Faire tendre h vers 0 pour obtenir f′(x) = 2x."
+      }
+    ],
+    "edges": [
+      { "from": "pente-droite", "to": "pente-instantanee" },
+      { "from": "pente-instantanee", "to": "taux-variation" },
+      { "from": "developpement", "to": "taux-variation" },
+      { "from": "taux-variation", "to": "derivee-2x" }
+    ],
+    "goalNodeId": "derivee-2x"
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "title": "Mesurer une pente",
+      "kind": "foundation",
+      "nodeId": "pente-droite",
+      "premises": [],
+      "proposition": {
+        "id": "p-pente",
+        "name": "Pente d'une droite",
+        "statement": "Pour deux points A(x₁; y₁) et B(x₂; y₂), la pente de la droite (AB) est Δy/Δx = (y₂ − y₁)/(x₂ − x₁)."
+      },
+      "teach": "Une pente mesure de combien une droite monte quand on avance. Prends deux points A et B sur la droite. La variation verticale est Δy = y₂ − y₁ ; la variation horizontale est Δx = x₂ − x₁. Leur rapport Δy/Δx est la pente.\n\nCe rapport ne dépend pas des deux points choisis : sur une même droite, avancer deux fois plus fait aussi monter deux fois plus. Par exemple, de A(2; 5) à B(6; 13) : Δy = 13 − 5 = 8 et Δx = 6 − 2 = 4, donc la pente vaut 8/4 = 2. Une pente de 2 signifie que chaque unité vers la droite ajoute 2 unités vers le haut.\n\nC'est le premier fait dont tout le reste dépend. Une pente est un rapport de variations, pas une distance.",
+      "check": {
+        "question": "De A(2; 5) à B(6; 13), quelle est la pente de la droite (AB) ?",
+        "options": ["2", "4", "8", "1/2"],
+        "correctIndex": 0,
+        "explanation": "Δy = 13 − 5 = 8 et Δx = 6 − 2 = 4. La pente vaut 8/4 = 2."
+      },
+      "repair": "La pente n'est pas la distance entre les points. Compte séparément les deux variations.\n\nD'abord la verticale : de y = 5 à y = 13, on monte de 13 − 5 = 8. Ensuite l'horizontale : de x = 2 à x = 6, on avance de 6 − 2 = 4. La pente est la montée divisée par l'avancée : 8 ÷ 4 = 2.\n\nRefais le calcul avec un autre couple de points de la même droite, par exemple (2; 5) et (4; 9). Tu dois retrouver 2."
+    },
+    {
+      "id": "s2",
+      "title": "Développer un carré",
+      "kind": "foundation",
+      "nodeId": "developpement",
+      "premises": [],
+      "proposition": {
+        "id": "p-carre",
+        "name": "Carré d'une somme",
+        "statement": "(x + h)² = x² + 2xh + h²."
+      },
+      "teach": "Pour comparer x² en deux points voisins, il faut développer (x + h)². Écris le carré comme un produit : (x + h)(x + h).\n\nDistribue chaque terme du premier facteur sur chaque terme du second : x·x + x·h + h·x + h·h. Les deux termes du milieu sont égaux, donc x² + 2xh + h².\n\nVérifie avec des nombres : pour x = 2 et h = 3, (2 + 3)² = 25, et 2² + 2·2·3 + 3² = 4 + 12 + 9 = 25. L'identité est exacte pour tous les nombres, pas seulement pour cet exemple.",
+      "check": {
+        "question": "Que vaut (x + 3)² ?",
+        "options": ["x² + 9", "x² + 6x + 9", "x² + 3x + 9", "x² + 6x + 3"],
+        "correctIndex": 1,
+        "explanation": "Avec h = 3 : (x + 3)² = x² + 2·x·3 + 3² = x² + 6x + 9."
+      },
+      "repair": "Développe lentement, produit par produit : (x + 3)(x + 3).\n\nx fois x donne x². x fois 3 donne 3x. 3 fois x donne encore 3x. 3 fois 3 donne 9. Additionne : x² + 3x + 3x + 9 = x² + 6x + 9.\n\nL'erreur fréquente est d'oublier les deux produits croisés et d'écrire x² + 9. Ici, les deux 3x s'ajoutent et donnent 6x."
+    },
+    {
+      "id": "s3",
+      "title": "Resserrer autour d'un point",
+      "kind": "derivation",
+      "nodeId": "pente-instantanee",
+      "premises": ["p-pente"],
+      "proposition": {
+        "id": "p-instant",
+        "name": "Pente instantanée",
+        "statement": "La pente d'une courbe en un point A est la limite des pentes des droites (AB) quand B se rapproche de A."
+      },
+      "teach": "Sur une courbe, la pente change d'un point à l'autre. La pente entre deux points A et B est encore Δy/Δx : c'est la pente de la sécante (AB).\n\nGarde A fixe et fais glisser B vers A. La sécante pivote. Quand B est très proche de A, la sécante ressemble de plus en plus à la tangente en A. La pente en A est la valeur vers laquelle tend la pente de la sécante, pas la pente d'une sécante particulière.\n\nC'est le passage de la pente moyenne à la pente instantanée. On note h l'écart horizontal entre A et B ; faire tendre B vers A, c'est faire tendre h vers 0. La pente instantanée est donc une limite de pentes moyennes.",
+      "check": {
+        "question": "Quand h tend vers 0, que fait la sécante (AB) ?",
+        "options": [
+          "Elle se rapproche de la tangente en A.",
+          "Elle s'éloigne de la courbe.",
+          "Elle devient toujours verticale.",
+          "Elle disparaît."
+        ],
+        "correctIndex": 0,
+        "explanation": "Quand B se rapproche de A, la direction de (AB) tend vers la direction de la tangente en A."
+      },
+      "repair": "Prends une courbe et deux points A et B. La droite (AB) coupe la courbe en deux points : c'est une sécante.\n\nMaintenant rapproche B de A le long de la courbe. La droite pivote autour de A. À la limite, elle ne coupe plus la courbe en deux points distincts : elle la touche en A. Cette position limite est la tangente.\n\nLa pente instantanée est la pente de cette tangente. Elle s'obtient en regardant vers quoi tendent les pentes des sécantes, pas en choisissant une sécante au hasard."
+    },
+    {
+      "id": "s4",
+      "title": "Calculer le taux de variation",
+      "kind": "derivation",
+      "nodeId": "taux-variation",
+      "premises": ["p-carre", "p-instant"],
+      "proposition": {
+        "id": "p-taux",
+        "name": "Taux de variation de x²",
+        "statement": "Pour f(x) = x², le taux de variation entre x et x + h vaut (f(x + h) − f(x))/h = 2x + h, pour h ≠ 0."
+      },
+      "teach": "Applique la pente moyenne à f(x) = x². Entre x et x + h, la variation de f est f(x + h) − f(x) = (x + h)² − x².\n\nDéveloppe : (x² + 2xh + h²) − x² = 2xh + h². Divise par h, qui est non nul : (2xh + h²)/h = 2x + h.\n\nAinsi, la pente de la sécante entre x et x + h vaut 2x + h. Ce n'est pas encore la pente instantanée : h est encore un écart non nul. Mais toute la dépendance en h est maintenant visible, et elle est simple.",
+      "check": {
+        "question": "Après simplification, le taux de variation de f(x) = x² vaut…",
+        "options": ["2x + h", "2x", "x + h", "2xh"],
+        "correctIndex": 0,
+        "explanation": "((x + h)² − x²)/h = (2xh + h²)/h = 2x + h, pour h ≠ 0."
+      },
+      "repair": "Développe le numérateur avant de diviser. (x + h)² = x² + 2xh + h². Retire x² : il reste 2xh + h².\n\nLes deux termes contiennent h. Factorise : h(2x + h). Divise par h : le h se simplifie et il reste 2x + h.\n\nAttention : on divise par h, donc h ne doit pas être nul. C'est pour cela que ce calcul décrit une sécante, pas encore la tangente."
+    },
+    {
+      "id": "s5",
+      "title": "Faire tendre h vers 0",
+      "kind": "derivation",
+      "nodeId": "derivee-2x",
+      "premises": ["p-taux"],
+      "proposition": {
+        "id": "p-derivee",
+        "name": "Dérivée de x²",
+        "statement": "La dérivée de f(x) = x² est f′(x) = 2x."
+      },
+      "teach": "Le taux de variation vaut 2x + h. Pour obtenir la pente instantanée, fais tendre h vers 0. Le terme 2x ne dépend pas de h ; le terme h devient aussi petit que l'on veut. La somme tend donc vers 2x.\n\nOn écrit f′(x) = lim(h→0) (2x + h) = 2x. La dérivée de x² est 2x.\n\nVérifie sur deux points : en x = 3, la tangente a une pente de 6 ; en x = 0, au sommet de la parabole, la pente vaut 0, ce qui est cohérent avec une tangente horizontale. La formule ne vient pas d'une règle mémorisée : elle sort de la limite du taux de variation.",
+      "check": {
+        "question": "Pourquoi 2x + h devient-il 2x quand h tend vers 0 ?",
+        "options": [
+          "Parce que h tend vers 0, donc 2x + h tend vers 2x.",
+          "Parce qu'on remplace brutalement h par 0 dans une fraction.",
+          "Parce que h s'annule dans x².",
+          "Parce que 2x est toujours la pente d'une parabole."
+        ],
+        "correctIndex": 0,
+        "explanation": "La limite de 2x + h quand h → 0 est 2x : le terme 2x est constant et h devient négligeable."
+      },
+      "repair": "Une limite n'est pas une substitution brutale. On ne pose pas h = 0 dans une expression où h était au dénominateur ; on regarde vers quoi tend l'expression quand h devient très petit.\n\nIci, l'expression est déjà simplifiée : 2x + h. Le nombre 2x ne bouge pas. Le nombre h peut être rendu aussi proche de 0 que l'on veut. Donc la somme peut être rendue aussi proche de 2x que l'on veut.\n\nC'est exactement ce que signifie « tend vers 2x ». La valeur limite est 2x, même si h n'est jamais exactement 0."
+    }
+  ],
+  "practice": [
+    {
+      "id": "ex1",
+      "statement": "Calcule la pente de la tangente à la courbe de f(x) = x² au point x = 3. Que signifie ce nombre concrètement pour la courbe ?",
+      "mode": "recall",
+      "targets": ["p-derivee"],
+      "hints": [
+        "La pente de la tangente en x est donnée par f′(x).",
+        "Utilise f′(x) = 2x, puis remplace x par 3."
+      ],
+      "solution": "f′(x) = 2x, donc f′(3) = 6. La tangente en x = 3 monte de 6 unités verticalement pour 1 unité horizontalement. Localement, la courbe se comporte comme cette droite."
+    },
+    {
+      "id": "ex2",
+      "statement": "Un mobile parcourt d(t) = t² mètres en t secondes. Quelle est sa vitesse instantanée à t = 4 s ?",
+      "mode": "composition",
+      "targets": ["p-derivee", "p-taux"],
+      "hints": [
+        "La vitesse instantanée est la dérivée de la distance par rapport au temps.",
+        "La dérivée de t² est 2t."
+      ],
+      "solution": "La vitesse instantanée est d′(t) = 2t. À t = 4 s, elle vaut 2 × 4 = 8 m/s. Le calcul est le même que pour x², avec t à la place de x."
+    },
+    {
+      "id": "ex3",
+      "statement": "Pourquoi ne peut-on pas calculer la pente instantanée en posant directement h = 0 dans (f(x + h) − f(x))/h ?",
+      "mode": "discrimination",
+      "targets": ["p-taux", "p-instant"],
+      "hints": [
+        "Regarde le dénominateur avant toute simplification.",
+        "Une limite décrit un rapprochement, pas une substitution."
+      ],
+      "solution": "Parce que h est au dénominateur : poser h = 0 donnerait une division par zéro. On calcule d'abord le taux pour h ≠ 0, on simplifie, puis on regarde la limite quand h tend vers 0. C'est la limite qui donne la pente de la tangente."
+    }
+  ],
+  "graph": {
+    "propositions": [
+      {
+        "id": "p-pente",
+        "name": "Pente d'une droite",
+        "statement": "Pour deux points A(x₁; y₁) et B(x₂; y₂), la pente de la droite (AB) est Δy/Δx = (y₂ − y₁)/(x₂ − x₁)."
+      },
+      {
+        "id": "p-carre",
+        "name": "Carré d'une somme",
+        "statement": "(x + h)² = x² + 2xh + h²."
+      },
+      {
+        "id": "p-instant",
+        "name": "Pente instantanée",
+        "statement": "La pente d'une courbe en un point A est la limite des pentes des droites (AB) quand B se rapproche de A."
+      },
+      {
+        "id": "p-taux",
+        "name": "Taux de variation de x²",
+        "statement": "Pour f(x) = x², le taux de variation entre x et x + h vaut (f(x + h) − f(x))/h = 2x + h, pour h ≠ 0."
+      },
+      {
+        "id": "p-derivee",
+        "name": "Dérivée de x²",
+        "statement": "La dérivée de f(x) = x² est f′(x) = 2x."
+      }
+    ],
+    "chains": [
+      {
+        "id": "c1",
+        "premises": ["p-pente"],
+        "conclusion": "p-instant"
+      },
+      {
+        "id": "c2",
+        "premises": ["p-carre", "p-instant"],
+        "conclusion": "p-taux"
+      },
+      {
+        "id": "c3",
+        "premises": ["p-taux"],
+        "conclusion": "p-derivee"
+      }
+    ]
+  }
+}

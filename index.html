@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" content="#f7f4ee" />
+		<meta
+			name="description"
+			content="Une base de savoir personnelle : saisis un sujet, obtiens une leçon construite un pas de raisonnement à la fois."
+		/>
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self'"
+		/>
+		<title>Base de savoir</title>
+		<link rel="stylesheet" href="assets/app.css" />
+	</head>
+	<body>
+		<a class="skip-link" href="#main">Aller au contenu</a>
+
+		<header class="topbar">
+			<a class="brand" href="#nouveau" id="brand">
+				<span class="brand-mark" aria-hidden="true">∴</span>
+				<span class="brand-text">Base de savoir</span>
+			</a>
+			<nav class="topnav" aria-label="Navigation principale">
+				<button type="button" class="nav-button" data-go="new">Nouveau</button>
+				<button type="button" class="nav-button" data-go="library">Base</button>
+				<button type="button" class="nav-button" id="settings-open">Réglages</button>
+			</nav>
+			<button type="button" class="key-status" id="key-status" title="État de la clé API">
+				clé absente
+			</button>
+		</header>
+
+		<div class="shell">
+			<aside class="sidebar" aria-label="Sujets enregistrés">
+				<div class="sidebar-head">
+					<h2>Mes sujets</h2>
+					<span class="count" id="topic-count">0</span>
+				</div>
+				<label class="search-field">
+					<span class="sr-only">Rechercher un sujet</span>
+					<input type="search" id="search" placeholder="Rechercher…" autocomplete="off" />
+				</label>
+				<ul class="topic-list" id="topic-list"></ul>
+				<p class="empty-note" id="sidebar-empty" hidden>
+					Rien ici. Construis un premier sujet, ou ouvre l'exemple.
+				</p>
+				<div class="sidebar-foot">
+					<button type="button" class="link-button" id="import-button">Importer</button>
+					<button type="button" class="link-button" id="export-button">Exporter</button>
+					<button type="button" class="link-button" id="restore-button">Exemples</button>
+					<input type="file" id="import-file" accept="application/json,.json" hidden />
+				</div>
+			</aside>
+
+			<main id="main" tabindex="-1">
+				<div id="view"></div>
+			</main>
+		</div>
+
+		<footer class="footer">
+			<p>
+				Méthode adaptée de
+				<a href="https://github.com/amosblomqvist/learnharness" rel="noopener noreferrer">LearnHarness</a>
+				(AGPL-3.0). Rien n'est envoyé sans action de ta part ; la clé reste dans ce navigateur.
+			</p>
+			<p class="muted">Site statique. Les sujets sont conservés dans le stockage local du navigateur.</p>
+		</footer>
+
+		<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+		<dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
+			<form id="settings-form" class="dialog-body" novalidate>
+				<div class="dialog-head">
+					<h2 id="settings-title">Réglages du modèle</h2>
+					<button type="button" class="icon-button" id="settings-close" aria-label="Fermer">×</button>
+				</div>
+
+				<p class="muted small">
+					Le site est statique : il appelle directement une API compatible OpenAI depuis ton navigateur. La clé
+					n'est jamais écrite dans le dépôt. Elle reste en mémoire de l'onglet, ou dans ce navigateur si tu
+					coches la case.
+				</p>
+
+				<label class="field">
+					<span>Fournisseur</span>
+					<select id="preset"></select>
+				</label>
+				<p class="hint" id="preset-help"></p>
+
+				<label class="field">
+					<span>URL de base</span>
+					<input type="url" id="endpoint" spellcheck="false" placeholder="https://…/v1" />
+				</label>
+
+				<label class="field">
+					<span>Modèle</span>
+					<input type="text" id="model" spellcheck="false" placeholder="nom-du-modele" />
+				</label>
+
+				<label class="field">
+					<span>Clé API</span>
+					<span class="key-row">
+						<input type="password" id="api-key" spellcheck="false" autocomplete="off" placeholder="sk-…" />
+						<button type="button" class="ghost-button" id="toggle-key">Afficher</button>
+					</span>
+				</label>
+
+				<label class="check">
+					<input type="checkbox" id="remember-key" />
+					<span>Mémoriser la clé dans ce navigateur (moins sûr)</span>
+				</label>
+
+				<p class="status-line" id="key-state"></p>
+
+				<div class="dialog-actions">
+					<button type="button" class="danger-button" id="clear-key">Effacer la clé</button>
+					<span class="spacer"></span>
+					<button type="submit" class="primary-button">Enregistrer</button>
+				</div>
+			</form>
+		</dialog>
+
+		<noscript>
+			<p class="noscript">Ce site a besoin de JavaScript pour construire et afficher les leçons.</p>
+		</noscript>
+
+		<script type="module" src="assets/app.js"></script>
+	</body>
+</html>

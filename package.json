@@ -1,0 +1,14 @@
+{
+  "name": "learn-base-savoir",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Base de savoir statique pour GitHub Pages, méthode LearnHarness.",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests"
+  }
+}

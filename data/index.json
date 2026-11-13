@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "topics": [
+    {
+      "id": "demo-derivee-x2",
+      "file": "topics/derivee-x-carre.json",
+      "title": "Pourquoi la dérivée de x² vaut 2x",
+      "topic": "Dérivée de x²",
+      "summary": "De la pente d'une droite à la pente instantanée, puis à f′(x) = 2x.",
+      "level": "lycée"
+    }
+  ]
+}
