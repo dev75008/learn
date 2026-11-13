@@ -12,10 +12,12 @@ Fichiers adaptés :
 - `assets/schema.js` — modèle de plan (`src/core/contracts/plan.ts`), de sondage (`src/core/contracts/probe.ts`) et d'exercice (`src/core/practice-problems.ts`), réduit à un format JSON autonome.
 - `docs/methode.md` — synthèse de `docs/teaching-methodology.md`.
 
-Les prompts ne sont pas des copies : ils sont réécrits pour un modèle sans outils et pour un transport manuel (copier-coller). Le texte de la méthode, l'ordre des phases et les invariants (un pas de raisonnement, une vérification par pas, réparation avant de continuer, arbre minimal) viennent de LearnHarness.
+Les prompts ne sont pas des copies : ils sont réécrits pour un modèle sans outils. Le texte de la méthode, l'ordre des phases et les invariants (un pas de raisonnement, une vérification par pas, réparation avant de continuer, arbre minimal) viennent de LearnHarness.
 
-## Ox Alpha
+## FreeLLMAPI
 
-Le moteur est le chat **Ox Alpha** (`https://oxalpha.com/chat`), utilisé par copier-coller. Ce projet n'est pas affilié à Ox Alpha. Il n'utilise ni API officielle — il n'y en a pas de publique — ni point d'accès interne, ni contournement de CSRF/Turnstile.
+Le moteur est **FreeLLMAPI** (`https://github.com/tashfeenahmed/freellmapi`), un routeur auto-hébergé sous licence MIT. La page lui envoie deux requêtes OpenAI-compatibles : sondage, puis leçon.
 
-Le présent site est distribué sous AGPL-3.0. Il n'est pas affilié à LearnHarness.
+Ce projet n'est affilié ni à FreeLLMAPI ni à LearnHarness. Les clés de fournisseurs restent dans l'instance FreeLLMAPI ; la page ne stocke que la clé unifiée dans le navigateur.
+
+Le présent site est distribué sous AGPL-3.0.

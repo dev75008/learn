@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Base de savoir statique pour GitHub Pages, méthode LearnHarness, moteur Ox Alpha en copier-coller.",
+  "description": "Base de savoir statique pour GitHub Pages, méthode LearnHarness, moteur FreeLLMAPI.",
   "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=20"

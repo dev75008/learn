@@ -20,13 +20,13 @@ Source principale : `docs/teaching-methodology.md` de LearnHarness, complété p
 | Élément | Choix ici | Pourquoi |
 | --- | --- | --- |
 | Format d'échange | JSON strict, validé | Un site statique n'a pas d'outils pour corriger un modèle ; le schéma refuse une leçon cassée. |
-| Phases | 2 prompts : sondage, puis leçon | Le sondage doit précéder le plan pour que la leçon parte des réponses. Chaque prompt reste autoportant. |
-| Transport | Copier-coller avec Ox Alpha | Le chat officiel n'a pas d'API publique et interdit l'automatisation. |
+| Phases | 2 appels : sondage, puis leçon | Le sondage doit précéder le plan pour que la leçon parte des réponses. Chaque appel reste autoportant. |
+| Transport | FreeLLMAPI, OpenAI-compatible | Un seul endpoint auto-hébergé, une clé unifiée, plusieurs fournisseurs gratuits. |
 | Plan | Nœuds + arêtes `requires`, rendu par niveaux | Fidèle au graphe de dépendances, sans dépendance Mermaid. |
 | Étapes | `premises` + `proposition` + `teach` + `check` + `repair` | Un pas = un fait + une vérification + une réparation. |
 | Graphe | `graph.propositions`, `graph.chains` | Reprend la structure propositions/chaînes de LearnHarness. |
 | Stockage | `localStorage`, export/import JSON | Compatible GitHub Pages, aucune infrastructure. |
-| Clé API | Aucune | Rien à stocker, rien à exposer. |
+| Clé API | Clé unifiée FreeLLMAPI, navigateur seulement | Le dépôt ne contient aucun secret. |
 
 ## 3. Schéma d'une leçon
 
@@ -91,9 +91,9 @@ Invariants vérifiés par `assets/schema.js` :
 ## 4. Flux dans la page
 
 1. **Sujet** : sujet, objectif, niveau, notes, option de sondage.
-2. **Prompt de sondage** (`buildProbePrompt`) : la page affiche le prompt à copier dans Ox Alpha. L'utilisateur colle la réponse JSON.
-3. **Sondage** : 3 à 5 questions, une par dépendance. L'apprenant répond, indique sa confiance et son raisonnement.
-4. **Prompt de leçon** (`buildLessonPrompt`) : la page y injecte les réponses et l'utilisateur le colle dans Ox Alpha. Ox Alpha produit plan + pas + vérifications + réparations + exercices + graphe.
+2. **Sondage** (`buildProbeMessages`) : appel `POST /v1/chat/completions` à FreeLLMAPI. Le modèle produit 3 à 5 questions, une par dépendance.
+3. **Réponses** : l'apprenant répond, indique sa confiance et son raisonnement.
+4. **Leçon** (`buildLessonMessages`) : second appel, avec les réponses injectées. Le modèle produit plan + pas + vérifications + réparations + exercices + graphe.
 5. **Plan** : approche, carte par niveaux, liste des pas, connaissances.
 6. **Pas** : proposition, enseignement, vérification. Bonne réponse → pas suivant. Mauvaise réponse ou « je ne sais pas » → réparation, puis nouvel essai. Aucun pas suivant n'est ouvert sans vérification correcte.
 7. **Pratique** : indices et solution à la demande, auto-évaluation.
@@ -101,11 +101,12 @@ Invariants vérifiés par `assets/schema.js` :
 
 ## 5. Limites assumées
 
-- Le transport est manuel : deux copier-coller par sujet.
+- FreeLLMAPI doit tourner et être joignable (CORS ; tunnel HTTPS depuis GitHub Pages).
 - La réparation est pré-écrite, pas adaptée à la réponse précise.
 - Le plan n'est pas réécrit pendant la leçon.
 - La pratique n'est pas corrigée par le modèle.
 - Chaque leçon a son graphe ; il n'y a pas de fusion globale entre leçons.
 - Le modèle peut se tromper. La page ne vérifie pas les faits ; elle vérifie la structure.
+- Les offres gratuites ont des quotas et des conditions propres à chaque fournisseur.
 
-Ces limites sont le prix d'un hébergement statique et d'un chat sans API publique. Le cœur de la méthode — mesure, arbre minimal, un pas vérifié à la fois, réparation avant de continuer — est conservé.
+Ces limites sont le prix d'un hébergement statique et d'un routeur auto-hébergé. Le cœur de la méthode — mesure, arbre minimal, un pas vérifié à la fois, réparation avant de continuer — est conservé.

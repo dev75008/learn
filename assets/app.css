@@ -208,7 +208,8 @@ hr {
 	margin-left: auto;
 }
 
-.nav-button {
+.nav-button,
+.key-status {
 	font: inherit;
 	font-size: 0.9rem;
 	color: var(--ink-soft);
@@ -217,12 +218,6 @@ hr {
 	border-radius: 999px;
 	padding: 7px 13px;
 	cursor: pointer;
-}
-
-a.nav-button {
-	display: inline-flex;
-	align-items: center;
-	text-decoration: none;
 }
 
 .nav-button:hover {
@@ -234,6 +229,17 @@ a.nav-button {
 	background: var(--paper-raised);
 	border-color: var(--line);
 	color: var(--ink);
+}
+
+.key-status {
+	font-size: 0.78rem;
+	border-color: var(--line);
+	color: var(--ink-faint);
+}
+
+.key-status.has-key {
+	color: var(--ok);
+	border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
 }
 
 /* ── Structure ──────────────────────────────────────────────────── */
@@ -487,7 +493,9 @@ main {
 
 .primary-button,
 .secondary-button,
-.ghost-button {
+.ghost-button,
+.danger-button,
+.icon-button {
 	font: inherit;
 	font-size: 0.92rem;
 	border-radius: 8px;
@@ -525,41 +533,6 @@ main {
 	background: var(--paper-sunk);
 }
 
-.button-link {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	text-decoration: none;
-}
-
-.guide {
-	margin: 0 0 22px;
-	padding-left: 22px;
-	display: grid;
-	gap: 8px;
-	color: var(--ink-soft);
-	font-size: 0.94rem;
-}
-
-.guide strong {
-	color: var(--ink);
-}
-
-.prompt-area {
-	font-family: var(--mono) !important;
-	font-size: 0.8rem !important;
-	line-height: 1.5 !important;
-	min-height: 260px;
-	background: var(--paper-sunk) !important;
-}
-
-#paste-form textarea[name="response"] {
-	font-family: var(--mono);
-	font-size: 0.82rem;
-	line-height: 1.5;
-	min-height: 220px;
-}
-
 .ghost-button {
 	background: transparent;
 	color: var(--ink-soft);
@@ -569,6 +542,34 @@ main {
 .ghost-button:hover {
 	background: var(--paper-sunk);
 	color: var(--ink);
+}
+
+.danger-button {
+	background: transparent;
+	color: var(--danger);
+	border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+.danger-button:hover {
+	background: var(--danger-wash);
+}
+
+.icon-button {
+	background: transparent;
+	color: var(--ink-soft);
+	border: 0;
+	font-size: 1.5rem;
+	line-height: 1;
+	padding: 2px 8px;
+}
+
+.icon-button:hover {
+	color: var(--ink);
+	background: var(--paper-sunk);
+}
+
+.spacer {
+	flex: 1;
 }
 
 .error-box {
@@ -1267,6 +1268,69 @@ main {
 	color: var(--ink-faint);
 }
 
+/* ── Dialogue ───────────────────────────────────────────────────── */
+
+.dialog {
+	width: min(560px, calc(100vw - 28px));
+	max-height: calc(100vh - 40px);
+	padding: 0;
+	border: 1px solid var(--line-strong);
+	border-radius: 12px;
+	background: var(--paper-raised);
+	color: var(--ink);
+	box-shadow: 0 24px 80px rgb(0 0 0 / 28%);
+}
+
+.dialog::backdrop {
+	background: rgb(20 18 14 / 45%);
+	backdrop-filter: blur(2px);
+}
+
+.dialog-body {
+	padding: 24px;
+	display: grid;
+	gap: 14px;
+}
+
+.dialog-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.dialog-head h2 {
+	font-size: 1.35rem;
+	margin: 0;
+}
+
+.key-row {
+	display: flex;
+	gap: 8px;
+}
+
+.key-row input {
+	flex: 1;
+}
+
+.check {
+	font-weight: 400;
+}
+
+.status-line {
+	font-size: 0.82rem;
+	color: var(--ink-faint);
+	margin: 0;
+	min-height: 1.2em;
+}
+
+.dialog-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 6px;
+}
+
 /* ── Pied de page et toast ──────────────────────────────────────── */
 
 .footer {
@@ -1342,6 +1406,9 @@ main {
 	}
 	.topnav {
 		margin-left: auto;
+	}
+	.key-status {
+		display: none;
 	}
 	.shell {
 		display: block;

@@ -1,24 +1,27 @@
 /**
  * Application statique « Base de savoir ».
  *
- * Flux : sujet -> prompt de sondage -> Ox Alpha (copier-coller) -> questions
- * -> prompt de leçon -> Ox Alpha -> plan -> pas -> pratique.
- *
- * Aucun appel réseau vers un modèle : la page ne parle qu'à son propre
- * hébergement pour charger les exemples. La méthode vient de LearnHarness
- * (AGPL-3.0), voir NOTICE.md.
+ * Flux : sujet -> sondage (2 à 5 questions) -> leçon (plan + pas + vérifications)
+ * -> pratique. La méthode vient de LearnHarness (AGPL-3.0), voir NOTICE.md.
+ * Le moteur est FreeLLMAPI, appelé directement par le navigateur.
  */
 
+import { FreeLlmError, requestJson, testConnection } from "./freellmapi.js";
 import { escapeHtml, renderMarkdown } from "./markdown.js";
-import { extractJson, ParseError } from "./parse.js";
-import { buildLessonPrompt, buildProbePrompt } from "./prompts.js";
+import { buildLessonMessages, buildProbeMessages } from "./prompts.js";
 import { planLayers, validateLesson, validateProbe } from "./schema.js";
 import {
+	clearKey,
 	downloadJson,
 	exportPayload,
 	importTopics,
+	keyLocation,
+	loadConfig,
+	loadKey,
 	loadLibrary,
 	removeTopic,
+	saveConfig,
+	saveKey,
 	saveLibrary,
 	upsertTopic,
 } from "./store.js";
@@ -37,13 +40,19 @@ const state = {
 	draft: null,
 	probe: null,
 	probeAnswers: null,
-	manual: null,
 	filter: "",
+	config: loadConfig(),
+	key: loadKey(),
+	busy: false,
+	requestId: 0,
+	abort: null,
+	retry: null,
 	importReport: null,
 };
 
 const view = $("#view");
 const toastEl = $("#toast");
+const settingsDialog = $("#settings-dialog");
 let toastTimer = null;
 
 /* ── Utilitaires ─────────────────────────────────────────────────── */
@@ -84,6 +93,19 @@ function filteredTopics() {
 	});
 }
 
+function currentConfig() {
+	return { ...state.config, key: state.key };
+}
+
+function isLoopbackEndpoint(endpoint) {
+	try {
+		const host = new URL(endpoint).hostname;
+		return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
+	} catch {
+		return false;
+	}
+}
+
 function ensureProgress(topic) {
 	if (!topic.progress || typeof topic.progress !== "object") topic.progress = {};
 	if (!topic.progress.checks || typeof topic.progress.checks !== "object") topic.progress.checks = {};
@@ -92,6 +114,7 @@ function ensureProgress(topic) {
 }
 
 function focusMain() {
+	// Le titre est rendu avec tabindex="-1" pour recevoir le focus après une action.
 	requestAnimationFrame(() => {
 		const heading = $("#view h1");
 		if (heading) {
@@ -109,23 +132,13 @@ function setView(name) {
 /* ── Démarrage ───────────────────────────────────────────────────── */
 
 async function init() {
-	purgeLegacySecrets();
 	state.topics = loadLibrary();
 	wireGlobalEvents();
+	wireSettings();
 	await loadBuiltins();
 	renderSidebar();
+	updateKeyStatus();
 	render();
-}
-
-/** Les versions précédentes stockaient une clé et une URL d'API. On les efface. */
-function purgeLegacySecrets() {
-	try {
-		localStorage.removeItem("lh.key.local");
-		localStorage.removeItem("lh.config.v1");
-		sessionStorage.removeItem("lh.key.session");
-	} catch {
-		/* stockage indisponible : rien à purger */
-	}
 }
 
 async function loadBuiltins() {
@@ -188,7 +201,9 @@ function renderSidebar() {
 	$("#topic-count").textContent = String(state.topics.length);
 	$("#sidebar-empty").hidden = topics.length > 0 || !state.filter;
 	if (!topics.length) {
-		list.innerHTML = state.filter ? `<li class="empty-note">Aucun sujet ne correspond.</li>` : "";
+		list.innerHTML = state.filter
+			? `<li class="empty-note">Aucun sujet ne correspond.</li>`
+			: "";
 		return;
 	}
 	list.innerHTML = topics
@@ -199,7 +214,7 @@ function renderSidebar() {
 					<span class="topic-title">${escapeHtml(topic.title)}</span>
 					<span class="topic-meta">
 						<span>${escapeHtml(statusOf(topic))}</span>
-						${topic.origin === "builtin" ? "<span>exemple</span>" : ""}
+						${topic.builtin || topic.origin === "builtin" ? "<span>exemple</span>" : ""}
 					</span>
 				</button>
 			</li>`,
@@ -229,18 +244,23 @@ function persistCurrent() {
 function wireGlobalEvents() {
 	$$("[data-go]").forEach((button) => {
 		button.addEventListener("click", () => {
+			abandonGeneration();
 			state.currentId = null;
 			state.current = null;
 			state.check = null;
 			setView(button.dataset.go);
+			shortNav();
 		});
 	});
 	$("#brand").addEventListener("click", (event) => {
 		event.preventDefault();
+		abandonGeneration();
 		state.currentId = null;
 		state.current = null;
 		setView("new");
 	});
+	$("#settings-open").addEventListener("click", openSettings);
+	$("#key-status").addEventListener("click", openSettings);
 	$("#search").addEventListener("input", (event) => {
 		state.filter = event.target.value;
 		renderSidebar();
@@ -259,6 +279,11 @@ function wireGlobalEvents() {
 	view.addEventListener("click", onViewClick);
 	view.addEventListener("submit", onViewSubmit);
 	view.addEventListener("input", onViewInput);
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape" && !settingsDialog.open && state.busy) {
+			cancelRequest();
+		}
+	});
 }
 
 function shortNav() {
@@ -279,24 +304,18 @@ function onViewClick(event) {
 		openTopic(id);
 		return;
 	}
-	if (action === "copy-prompt") {
-		copyPrompt();
-		return;
-	}
-	if (action === "back-to-new" || action === "new") {
-		state.manual = null;
-		state.probe = null;
-		state.probeAnswers = null;
-		state.currentId = null;
-		state.current = null;
-		state.check = null;
-		setView("new");
+	if (action === "retry") {
+		state.retry?.();
 		return;
 	}
 	if (action === "back") {
 		state.currentId = null;
 		state.current = null;
 		setView("library");
+		return;
+	}
+	if (action === "cancel") {
+		cancelRequest();
 		return;
 	}
 	if (action === "start-lesson" || action === "resume-lesson") {
@@ -311,10 +330,6 @@ function onViewClick(event) {
 	if (action === "retry-check") {
 		state.check = null;
 		renderLesson();
-		return;
-	}
-	if (action === "dontknow-check") {
-		submitCheckDontKnow();
 		return;
 	}
 	if (action === "next-step") {
@@ -356,6 +371,13 @@ function onViewClick(event) {
 	if (action === "clear-import-report") {
 		state.importReport = null;
 		renderLibrary();
+		return;
+	}
+	if (action === "new") {
+		state.currentId = null;
+		state.current = null;
+		setView("new");
+		return;
 	}
 }
 
@@ -369,10 +391,139 @@ function onViewInput(event) {
 
 function onViewSubmit(event) {
 	event.preventDefault();
-	if (event.target.id === "new-form") submitNewTopic(event.target);
-	else if (event.target.id === "probe-form") submitProbe(event.target);
-	else if (event.target.id === "check-form") submitCheck(event.target);
-	else if (event.target.id === "paste-form") submitPaste(event.target);
+	if (state.busy) return;
+	if (event.target.id === "new-form") {
+		submitNewTopic(event.target);
+	} else if (event.target.id === "probe-form") {
+		submitProbe(event.target);
+	} else if (event.target.id === "check-form") {
+		submitCheck(event.target);
+	}
+}
+
+/* ── Réglages ────────────────────────────────────────────────────── */
+
+function wireSettings() {
+	$("#settings-close").addEventListener("click", () => settingsDialog.close());
+	$("#toggle-key").addEventListener("click", () => {
+		const input = $("#api-key");
+		const showing = input.type === "text";
+		input.type = showing ? "password" : "text";
+		$("#toggle-key").textContent = showing ? "Afficher" : "Masquer";
+	});
+	$("#clear-key").addEventListener("click", () => {
+		clearKey();
+		state.key = "";
+		$("#api-key").value = "";
+		updateKeyStatus();
+		updateKeyStateLine();
+		toast("Clé effacée de ce navigateur.");
+	});
+	$("#test-connection").addEventListener("click", testCurrentConnection);
+	$("#settings-form").addEventListener("submit", (event) => {
+		event.preventDefault();
+		saveSettings();
+	});
+	settingsDialog.addEventListener("click", (event) => {
+		if (event.target === settingsDialog) settingsDialog.close();
+	});
+}
+
+function openSettings() {
+	$("#endpoint").value = state.config.endpoint;
+	$("#model").value = state.config.model;
+	$("#api-key").value = "";
+	$("#api-key").type = "password";
+	$("#toggle-key").textContent = "Afficher";
+	$("#remember-key").checked = state.config.rememberKey === true;
+	$("#test-status").textContent = "";
+	updateKeyStateLine();
+	settingsDialog.showModal();
+	$("#endpoint").focus();
+}
+
+function updateKeyStateLine() {
+	const location = keyLocation();
+	const labels = {
+		local: "Clé FreeLLMAPI mémorisée dans ce navigateur (localStorage).",
+		session: "Clé FreeLLMAPI en mémoire pour cet onglet seulement (sessionStorage).",
+		none: "Aucune clé FreeLLMAPI en mémoire. Les exemples restent consultables.",
+	};
+	$("#key-state").textContent = labels[location];
+}
+
+function updateKeyStatus() {
+	const location = keyLocation();
+	const badge = $("#key-status");
+	badge.classList.toggle("has-key", location !== "none");
+	badge.textContent = location === "none" ? "clé absente" : location === "local" ? "clé mémorisée" : "clé en session";
+}
+
+function settingsFormConfig() {
+	return {
+		endpoint: $("#endpoint").value.trim() || "http://localhost:3001/v1",
+		model: $("#model").value.trim() || "auto",
+		key: $("#api-key").value.trim() || state.key,
+	};
+}
+
+async function testCurrentConnection() {
+	const config = settingsFormConfig();
+	const status = $("#test-status");
+	const button = $("#test-connection");
+	if (!config.key) {
+		status.textContent = "Ajoute d'abord la clé unifiée FreeLLMAPI.";
+		return;
+	}
+	button.disabled = true;
+	status.textContent = "Connexion à FreeLLMAPI…";
+	try {
+		const result = await testConnection(config);
+		status.textContent =
+			result.count === null
+				? "FreeLLMAPI répond."
+				: `FreeLLMAPI répond : ${result.count} modèle(s) dans le catalogue.`;
+	} catch (error) {
+		status.textContent = error instanceof FreeLlmError ? error.message : String(error?.message ?? error);
+	} finally {
+		button.disabled = false;
+	}
+}
+
+function saveSettings() {
+	const config = settingsFormConfig();
+	let url;
+	try {
+		url = new URL(config.endpoint);
+	} catch {
+		toast("URL invalide. Exemple : http://localhost:3001/v1");
+		return;
+	}
+	if (!["https:", "http:"].includes(url.protocol)) {
+		toast("L'URL doit commencer par https:// ou http://.");
+		return;
+	}
+	if (location.protocol === "https:" && url.protocol === "http:" && !["localhost", "127.0.0.1"].includes(url.hostname)) {
+		toast("Une page HTTPS ne peut pas appeler une API HTTP non locale (contenu mixte).");
+		return;
+	}
+	if (!config.key) {
+		toast("Ajoute la clé unifiée FreeLLMAPI.");
+		return;
+	}
+
+	state.config = {
+		endpoint: config.endpoint,
+		model: config.model,
+		rememberKey: $("#remember-key").checked,
+	};
+	saveConfig(state.config);
+	state.key = config.key;
+	saveKey(state.key, state.config.rememberKey);
+	updateKeyStatus();
+	updateKeyStateLine();
+	settingsDialog.close();
+	toast("Réglages FreeLLMAPI enregistrés.");
 }
 
 /* ── Nouveau sujet ───────────────────────────────────────────────── */
@@ -383,6 +534,8 @@ function defaultDraft() {
 
 function renderNew() {
 	const draft = state.draft ?? defaultDraft();
+	const hasKey = Boolean(state.key);
+	const localBlocked = hasKey && location.protocol === "https:" && isLoopbackEndpoint(state.config.endpoint);
 	view.innerHTML = `
 		<div class="view-head">
 			<p class="eyebrow">Construire</p>
@@ -390,11 +543,24 @@ function renderNew() {
 			<p class="lede">Le sujet est sondé, puis construit en un pas de raisonnement à la fois. Chaque pas est vérifié avant le suivant.</p>
 		</div>
 
-		<div class="notice-box">
-			<strong>Moteur : Ox Alpha, en copier-coller.</strong>
-			La page prépare le prompt et valide la réponse. Aucune clé, aucun routeur.
-			<a href="https://oxalpha.com/chat" target="_blank" rel="noopener noreferrer">Ouvrir Ox Alpha</a>.
-		</div>
+		${
+			localBlocked
+				? `<div class="notice-box">
+					<strong>URL locale détectée.</strong> GitHub Pages (HTTPS) ne peut pas appeler
+					<code>${escapeHtml(state.config.endpoint)}</code> de façon fiable. Utilise un tunnel HTTPS, ou ouvre la
+					page en local. <a href="#" data-action="open-settings">Modifier l'URL</a>.
+				</div>`
+				: ""
+		}
+
+		${
+			hasKey
+				? ""
+				: `<div class="notice-box">
+					Aucune clé FreeLLMAPI en mémoire. Tu peux lire les exemples de la base, ou configurer le routeur dans
+					<a href="#" data-action="open-settings">Réglages</a>. La clé unifiée reste dans ce navigateur.
+				</div>`
+		}
 
 		<form id="new-form" class="panel form-grid" novalidate>
 			<label class="field">
@@ -435,8 +601,8 @@ function renderNew() {
 			</label>
 
 			<div class="form-actions">
-				<button type="submit" class="primary-button">Préparer le prompt</button>
-				<span class="hint">Étape suivante : copier le prompt dans Ox Alpha, puis coller sa réponse.</span>
+				<button type="submit" class="primary-button">Construire la leçon</button>
+				<span class="hint">Le sondage est recommandé ; sans lui, la leçon suppose le niveau indiqué.</span>
 			</div>
 		</form>
 	`;
@@ -456,182 +622,76 @@ function submitNewTopic(form) {
 		toast("Écris un sujet.");
 		return;
 	}
-	startManual(draft);
-}
-
-function startManual(draft) {
-	const phase = draft.probe ? "probe" : "lesson";
-	state.currentId = null;
-	state.current = null;
-	state.check = null;
-	state.probe = null;
-	state.probeAnswers = null;
-	state.manual = {
-		draft,
-		phase,
-		prompt: phase === "probe" ? buildProbePrompt(draft) : buildLessonPrompt(draft, null),
-		response: "",
-		error: [],
-	};
-	state.view = "prompt";
-	render();
-}
-
-/* ── Copier le prompt / coller la réponse ────────────────────────── */
-
-async function copyPrompt() {
-	const area = $("#prompt-text");
-	if (!area) return;
-	area.focus();
-	area.select();
-	try {
-		await navigator.clipboard.writeText(area.value);
-		toast("Prompt copié. Colle-le dans Ox Alpha.");
-	} catch {
-		try {
-			document.execCommand("copy");
-			toast("Prompt copié. Colle-le dans Ox Alpha.");
-		} catch {
-			toast("Copie refusée par le navigateur. Sélectionne le texte et fais Ctrl+C.");
-		}
-	}
-}
-
-function renderPrompt() {
-	const manual = state.manual;
-	if (!manual) {
-		setView("new");
+	if (!state.key) {
+		toast("Ajoute la clé FreeLLMAPI dans Réglages pour générer une leçon.");
+		openSettings();
 		return;
 	}
-	const isProbe = manual.phase === "probe";
-	const errors = manual.error ?? [];
+	if (draft.probe) runProbe(draft);
+	else runLesson(draft, null);
+}
+
+/* ── Sondage ─────────────────────────────────────────────────────── */
+
+function showLoading(message, detail = "") {
+	state.busy = true;
+	state.abort = new AbortController();
 	view.innerHTML = `
-		<div class="view-head">
-			<p class="eyebrow">Ox Alpha · ${isProbe ? "sondage" : "leçon"}</p>
-			<h1>${isProbe ? "Sonder avec Ox Alpha" : "Construire la leçon avec Ox Alpha"}</h1>
-			<p class="lede">${
-				isProbe
-					? "Ox Alpha choisit quelques questions pour situer ta frontière. Tu réponds ensuite ici."
-					: "Le prompt contient tes réponses au sondage. Ox Alpha produit le plan, les pas, les vérifications et la pratique."
-			}</p>
+		<div class="loading">
+			<div class="spinner" aria-hidden="true"></div>
+			<h1 class="loading-title">${escapeHtml(message)}</h1>
+			<p>${escapeHtml(detail)}</p>
+			<button type="button" class="ghost-button" data-action="cancel">Annuler</button>
 		</div>
-
-		<ol class="guide">
-			<li><strong>Copie le prompt.</strong> Le bouton sélectionne tout le texte.</li>
-			<li><strong>Ouvre Ox Alpha et colle-le.</strong> Attends la réponse complète : elle peut être longue.</li>
-			<li><strong>Copie toute la réponse</strong>, puis colle-la dans le champ ci-dessous. La page extrait le JSON et le valide.</li>
-		</ol>
-
-		<div class="panel">
-			<label class="field">
-				<span>Prompt pour Ox Alpha</span>
-				<textarea id="prompt-text" class="prompt-area" readonly rows="14" spellcheck="false">${escapeHtml(manual.prompt)}</textarea>
-			</label>
-			<div class="form-actions">
-				<button type="button" class="primary-button" data-action="copy-prompt">Copier le prompt</button>
-				<a class="secondary-button button-link" href="https://oxalpha.com/chat" target="_blank" rel="noopener noreferrer">Ouvrir Ox Alpha</a>
-				<span class="hint">Le prompt est long : copie tout, jusqu'à la dernière ligne.</span>
-			</div>
-		</div>
-
-		<form id="paste-form" class="panel form-grid spaced-top" novalidate>
-			<label class="field">
-				<span>Réponse d'Ox Alpha</span>
-				<textarea name="response" rows="12" spellcheck="false"
-					placeholder="Colle ici la réponse complète, JSON compris…">${escapeHtml(manual.response)}</textarea>
-				<span class="hint">Le texte autour du JSON est toléré. Une réponse incomplète sera refusée.</span>
-			</label>
-
-			${
-				errors.length
-					? `<div class="error-box">
-						<strong>Réponse refusée.</strong>
-						<ul>${errors.slice(0, 6).map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>
-						<p class="small">Corrige la réponse ou recolle-la en entier.</p>
-					</div>`
-					: ""
-			}
-
-			<div class="form-actions">
-				<button type="submit" class="primary-button">Lire la réponse</button>
-				<button type="button" class="secondary-button" data-action="back-to-new">Changer de sujet</button>
-			</div>
-		</form>
 	`;
-	focusMain();
 }
 
-function submitPaste(form) {
-	const manual = state.manual;
-	if (!manual) return;
-	const data = new FormData(form);
-	const responseText = String(data.get("response") ?? "").trim();
-	manual.response = responseText;
-	manual.error = [];
-	if (!responseText) {
-		manual.error = ["Le champ est vide. Colle la réponse complète d'Ox Alpha."];
-		renderPrompt();
-		return;
-	}
+function cancelRequest() {
+	state.abort?.abort();
+	state.requestId += 1;
+	state.busy = false;
+	state.abort = null;
+	if (state.draft) setView("new");
+	else setView("library");
+}
 
-	let raw;
+/** Abandonne une génération en cours sans changer de vue (navigation). */
+function abandonGeneration() {
+	if (!state.busy) return;
+	state.abort?.abort();
+	state.requestId += 1;
+	state.busy = false;
+	state.abort = null;
+}
+
+async function runProbe(draft) {
+	const token = ++state.requestId;
+	showLoading("Sondage en cours…", "Le modèle choisit quelques questions pour situer ta frontière sur les dépendances du sujet.");
 	try {
-		raw = extractJson(responseText);
-	} catch (error) {
-		manual.error = [
-			error instanceof ParseError
-				? error.message
-				: "Impossible de lire la réponse. Colle le texte complet, sans le modifier.",
-		];
-		renderPrompt();
-		return;
-	}
-
-	if (manual.phase === "probe") {
+		const raw = await requestJson(currentConfig(), buildProbeMessages(draft), {
+			maxTokens: 2200,
+			signal: state.abort.signal,
+		});
+		if (token !== state.requestId) return;
 		const result = validateProbe(raw);
 		if (!result.ok) {
-			manual.error = result.errors;
-			renderPrompt();
+			state.busy = false;
+			renderError("Le sondage est inutilisable", "Le modèle n'a pas respecté le format attendu.", result.errors, () =>
+				runProbe(draft),
+			);
 			return;
 		}
+		state.busy = false;
 		state.probe = result.probe;
 		state.probeAnswers = null;
 		state.view = "probe";
 		render();
-		return;
+	} catch (error) {
+		if (token !== state.requestId) return;
+		state.busy = false;
+		handleGenerationError(error, "Le sondage a échoué", () => runProbe(draft));
 	}
-
-	const result = validateLesson(raw);
-	if (!result.ok) {
-		manual.error = result.errors;
-		renderPrompt();
-		return;
-	}
-	if (result.warnings.length) console.info("Avertissements de validation", result.warnings);
-	const now = new Date().toISOString();
-	const lesson = {
-		...result.lesson,
-		id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-		createdAt: now,
-		updatedAt: now,
-		origin: "oxalpha-manual",
-		model: "ox-alpha",
-		level: result.lesson.level || manual.draft.level,
-		progress: { stepIndex: 0, checks: {}, startedAt: null, completedAt: null },
-	};
-	state.topics = upsertTopic(state.topics, lesson);
-	persistTopics();
-	state.current = lesson;
-	state.currentId = lesson.id;
-	state.stepIndex = 0;
-	state.check = null;
-	state.manual = null;
-	state.view = "plan";
-	render();
-	toast("Leçon ajoutée à ta base.");
 }
-
-/* ── Sondage ─────────────────────────────────────────────────────── */
 
 function renderProbe() {
 	const probe = state.probe;
@@ -685,10 +745,9 @@ function renderProbe() {
 				.join("")}
 
 			<div class="form-actions">
-				<button type="submit" class="primary-button">Préparer le prompt de leçon</button>
-				<button type="button" class="secondary-button" data-action="back-to-new">Changer de sujet</button>
+				<button type="submit" class="primary-button">Construire la leçon</button>
+				<span class="hint">Le modèle planifie à partir de tes réponses.</span>
 			</div>
-			<p class="hint">Tu copieras ce prompt dans Ox Alpha, puis tu colleras la leçon JSON.</p>
 		</form>
 	`;
 	shortNav();
@@ -715,22 +774,97 @@ function submitProbe(form) {
 		toast("Réponds à chaque question, ou choisis « Je ne sais pas ».");
 		return;
 	}
-	const probeAnswers = { goal: state.probe.goal, questions };
-	state.probeAnswers = probeAnswers;
-	const draft = state.manual?.draft ?? state.draft;
-	if (!draft) {
-		setView("new");
-		return;
+	state.probeAnswers = { goal: state.probe.goal, questions };
+	runLesson(state.draft, state.probeAnswers);
+}
+
+/* ── Génération de la leçon ──────────────────────────────────────── */
+
+async function runLesson(draft, probeAnswers) {
+	const token = ++state.requestId;
+	showLoading(
+		"Construction de la leçon…",
+		"Le modèle cherche l'arbre minimal, écrit les pas, les vérifications et les réparations.",
+	);
+	try {
+		const raw = await requestJson(currentConfig(), buildLessonMessages(draft, probeAnswers), {
+			maxTokens: 9000,
+			signal: state.abort.signal,
+		});
+		if (token !== state.requestId) return;
+		const result = validateLesson(raw);
+		if (!result.ok) {
+			state.busy = false;
+			renderError(
+				"La leçon est inutilisable",
+				"Le modèle a produit une structure incomplète. Réessaie : le format est strict.",
+				result.errors,
+				() => runLesson(draft, probeAnswers),
+			);
+			return;
+		}
+		if (result.warnings.length) console.info("Avertissements de validation", result.warnings);
+		const now = new Date().toISOString();
+		const lesson = {
+			...result.lesson,
+			id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+			createdAt: now,
+			updatedAt: now,
+			origin: "freellmapi",
+			model: state.config.model,
+			level: result.lesson.level || draft.level,
+			progress: { stepIndex: 0, checks: {}, startedAt: null, completedAt: null },
+		};
+		state.topics = upsertTopic(state.topics, lesson);
+		persistTopics();
+		state.current = lesson;
+		state.currentId = lesson.id;
+		state.stepIndex = 0;
+		state.check = null;
+		state.busy = false;
+		state.view = "plan";
+		render();
+		toast("Leçon construite et ajoutée à ta base.");
+	} catch (error) {
+		if (token !== state.requestId) return;
+		state.busy = false;
+		handleGenerationError(error, "La génération a échoué", () => runLesson(draft, probeAnswers));
 	}
-	state.manual = {
-		draft,
-		phase: "lesson",
-		prompt: buildLessonPrompt(draft, probeAnswers),
-		response: "",
-		error: [],
-	};
-	state.view = "prompt";
-	render();
+}
+
+function handleGenerationError(error, title, retry) {
+	if (error instanceof FreeLlmError) {
+		renderError(title, error.message, error.detail ? [error.detail] : [], retry);
+	} else {
+		renderError(title, String(error?.message ?? error), [], retry);
+	}
+}
+
+function renderError(title, message, details = [], retry) {
+	state.retry = retry;
+	view.innerHTML = `
+		<div class="view-head">
+			<p class="eyebrow">Erreur</p>
+			<h1>${escapeHtml(title)}</h1>
+			<p class="lede">${escapeHtml(message)}</p>
+		</div>
+		${
+			details.length
+				? `<div class="error-box">
+					<strong>Détail :</strong>
+					<ul>${details
+						.slice(0, 6)
+						.map((detail) => `<li>${escapeHtml(String(detail))}</li>`)
+						.join("")}</ul>
+				</div>`
+				: ""
+		}
+		<div class="form-actions">
+			<button type="button" class="primary-button" data-action="retry">Réessayer</button>
+			<button type="button" class="secondary-button" data-action="back">Retour à la base</button>
+		</div>
+	`;
+	focusMain();
 }
 
 /* ── Ouverture d'un sujet ────────────────────────────────────────── */
@@ -738,7 +872,7 @@ function submitProbe(form) {
 function openTopic(id) {
 	const topic = state.topics.find((item) => item.id === id);
 	if (!topic) return;
-	state.manual = null;
+	abandonGeneration();
 	state.currentId = id;
 	state.current = structuredClone(topic);
 	state.check = null;
@@ -1366,9 +1500,6 @@ function restoreBuiltins() {
 
 function render() {
 	switch (state.view) {
-		case "prompt":
-			renderPrompt();
-			break;
 		case "probe":
 			renderProbe();
 			break;
@@ -1392,5 +1523,17 @@ function render() {
 	}
 	shortNav();
 }
+
+// Le bouton « Je ne sais pas » est un bouton simple : on l'intercepte ici pour
+// éviter un gestionnaire par rendu.
+view.addEventListener("click", (event) => {
+	if (event.target.closest('[data-action="dontknow-check"]')) submitCheckDontKnow();
+});
+view.addEventListener("click", (event) => {
+	if (event.target.closest('[data-action="open-settings"]')) {
+		event.preventDefault();
+		openSettings();
+	}
+});
 
 init();

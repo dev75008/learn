@@ -7,11 +7,11 @@
 		<meta name="theme-color" content="#f7f4ee" />
 		<meta
 			name="description"
-			content="Une base de savoir personnelle : saisis un sujet, construis la leçon avec Ox Alpha, garde-la dans ton navigateur."
+			content="Une base de savoir personnelle : saisis un sujet, obtiens une leçon construite un pas de raisonnement à la fois."
 		/>
 		<meta
 			http-equiv="Content-Security-Policy"
-			content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
+			content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self'"
 		/>
 		<title>Base de savoir</title>
 		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -28,8 +28,11 @@
 			<nav class="topnav" aria-label="Navigation principale">
 				<button type="button" class="nav-button" data-go="new">Nouveau</button>
 				<button type="button" class="nav-button" data-go="library">Base</button>
-				<a class="nav-button" href="https://oxalpha.com/chat" target="_blank" rel="noopener noreferrer">Ox Alpha</a>
+				<button type="button" class="nav-button" id="settings-open">Réglages</button>
 			</nav>
+			<button type="button" class="key-status" id="key-status" title="État de la clé API">
+				clé absente
+			</button>
 		</header>
 
 		<div class="shell">
@@ -63,12 +66,69 @@
 			<p>
 				Méthode adaptée de
 				<a href="https://github.com/amosblomqvist/learnharness" rel="noopener noreferrer">LearnHarness</a>
-				(AGPL-3.0). Génération par Ox Alpha en copier-coller : aucune clé, aucun routeur.
+				(AGPL-3.0). Moteur : <a href="https://github.com/tashfeenahmed/freellmapi" rel="noopener noreferrer">FreeLLMAPI</a>,
+				auto-hébergé. La clé unifiée reste dans ce navigateur.
 			</p>
 			<p class="muted">Site statique. Les sujets sont conservés dans le stockage local du navigateur.</p>
 		</footer>
 
 		<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+		<dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
+			<form id="settings-form" class="dialog-body" novalidate>
+				<div class="dialog-head">
+					<h2 id="settings-title">FreeLLMAPI</h2>
+					<button type="button" class="icon-button" id="settings-close" aria-label="Fermer">×</button>
+				</div>
+
+				<p class="muted small">
+					FreeLLMAPI est un routeur auto-hébergé, compatible OpenAI. La page l'appelle directement depuis ton
+					navigateur. La clé unifiée n'est jamais écrite dans le dépôt : elle reste en mémoire de l'onglet, ou
+					dans ce navigateur si tu coches la case.
+				</p>
+
+				<div class="notice-box small">
+					<strong>Depuis GitHub Pages, Chrome bloque les appels d'une page HTTPS vers localhost</strong> (Private
+					Network Access). Utilise un tunnel HTTPS vers FreeLLMAPI, ou ouvre la page en local. Ajoute aussi
+					<code>DASHBOARD_ORIGINS=https://dev75008.github.io</code> dans FreeLLMAPI.
+				</div>
+
+				<label class="field">
+					<span>URL de base</span>
+					<input type="url" id="endpoint" spellcheck="false" placeholder="http://localhost:3001/v1" />
+					<span class="hint">Sans /chat/completions. Exemple : https://xxx.trycloudflare.com/v1</span>
+				</label>
+
+				<label class="field">
+					<span>Modèle</span>
+					<input type="text" id="model" spellcheck="false" placeholder="auto" />
+					<span class="hint">« auto » utilise ta chaîne FreeLLMAPI. « auto:smart » privilégie le raisonnement.</span>
+				</label>
+
+				<label class="field">
+					<span>Clé unifiée FreeLLMAPI</span>
+					<span class="key-row">
+						<input type="password" id="api-key" spellcheck="false" autocomplete="off" placeholder="freellmapi-…" />
+						<button type="button" class="ghost-button" id="toggle-key">Afficher</button>
+					</span>
+				</label>
+
+				<label class="check">
+					<input type="checkbox" id="remember-key" />
+					<span>Mémoriser la clé dans ce navigateur (moins sûr)</span>
+				</label>
+
+				<p class="status-line" id="key-state"></p>
+
+				<div class="dialog-actions">
+					<button type="button" class="ghost-button" id="test-connection">Tester la connexion</button>
+					<span class="spacer"></span>
+					<button type="button" class="danger-button" id="clear-key">Effacer la clé</button>
+					<button type="submit" class="primary-button">Enregistrer</button>
+				</div>
+				<p class="status-line" id="test-status" role="status"></p>
+			</form>
+		</dialog>
 
 		<noscript>
 			<p class="noscript">Ce site a besoin de JavaScript pour construire et afficher les leçons.</p>

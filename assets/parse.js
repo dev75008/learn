@@ -1,5 +1,5 @@
 /**
- * Lecture de la réponse JSON copiée depuis Ox Alpha.
+ * Lecture du JSON renvoyé par le modèle.
  * Le modèle peut entourer l'objet de texte ou de balises Markdown : on
  * récupère l'objet le plus large possible, puis le schéma valide le contenu.
  */
@@ -15,7 +15,7 @@ export class ParseError extends Error {
 
 export function extractJson(text) {
 	const raw = String(text ?? "").trim();
-	if (!raw) throw new ParseError("Le champ est vide. Colle la réponse complète d'Ox Alpha.", "empty");
+	if (!raw) throw new ParseError("La réponse du modèle est vide.", "empty");
 	const unfenced = raw
 		.replace(/^```(?:json)?\s*/i, "")
 		.replace(/\s*```$/i, "")
@@ -33,7 +33,7 @@ export function extractJson(text) {
 			}
 		}
 		throw new ParseError(
-			"Le texte collé ne contient pas un objet JSON valide. Copie la réponse complète d'Ox Alpha, sans la modifier.",
+			"Le modèle n'a pas renvoyé un objet JSON valide. Réessaie.",
 			"bad-json",
 			unfenced.slice(0, 500),
 		);
