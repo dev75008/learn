@@ -176,3 +176,20 @@ Construis la leçon JSON complète, fidèle à la méthode.`;
 		{ role: "user", content: user },
 	];
 }
+
+const FINAL_JSON_REMINDER =
+	"Rappel final : réponds uniquement avec l'objet JSON complet, sans texte avant ni après, sans balise de code. N'utilise aucun outil et ne pose aucune question : cette réponse sera copiée telle quelle dans une page.";
+
+function messagesToPrompt(messages) {
+	return messages.map((message) => message.content).join("\n\n---\n\n");
+}
+
+/** Prompt unique à copier dans oxalpha.com/chat pour le sondage. */
+export function buildProbePrompt(input) {
+	return `${messagesToPrompt(buildProbeMessages(input))}\n\n---\n\n${FINAL_JSON_REMINDER}`;
+}
+
+/** Prompt unique à copier dans oxalpha.com/chat pour la leçon. */
+export function buildLessonPrompt(input, probeAnswers) {
+	return `${messagesToPrompt(buildLessonMessages(input, probeAnswers))}\n\n---\n\n${FINAL_JSON_REMINDER}`;
+}

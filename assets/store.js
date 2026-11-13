@@ -1,21 +1,11 @@
 /**
  * Persistance locale. Aucune donnée n'est envoyée à un serveur.
- * La clé API n'est jamais incluse dans la bibliothèque ni dans les exports.
+ * Aucune clé API n'existe : la génération passe par le copier-coller Ox Alpha.
  */
 
 import { validateLesson } from "./schema.js";
 
 const LIBRARY_KEY = "lh.library.v1";
-const CONFIG_KEY = "lh.config.v1";
-const KEY_SESSION = "lh.key.session";
-const KEY_LOCAL = "lh.key.local";
-
-export const DEFAULT_CONFIG = {
-	preset: "openrouter",
-	endpoint: "https://openrouter.ai/api/v1",
-	model: "openrouter/auto",
-	rememberKey: false,
-};
 
 function parse(value, fallback) {
 	try {
@@ -23,51 +13,6 @@ function parse(value, fallback) {
 	} catch {
 		return fallback;
 	}
-}
-
-export function loadConfig() {
-	const stored = parse(localStorage.getItem(CONFIG_KEY), {});
-	return {
-		...DEFAULT_CONFIG,
-		...stored,
-		endpoint: typeof stored.endpoint === "string" ? stored.endpoint : DEFAULT_CONFIG.endpoint,
-		model: typeof stored.model === "string" ? stored.model : DEFAULT_CONFIG.model,
-		preset: typeof stored.preset === "string" ? stored.preset : DEFAULT_CONFIG.preset,
-		rememberKey: stored.rememberKey === true,
-	};
-}
-
-export function saveConfig(config) {
-	const safe = {
-		preset: config.preset,
-		endpoint: config.endpoint,
-		model: config.model,
-		rememberKey: config.rememberKey,
-	};
-	localStorage.setItem(CONFIG_KEY, JSON.stringify(safe));
-}
-
-/** La clé vit en session par défaut ; en local seulement sur demande explicite. */
-export function loadKey() {
-	return localStorage.getItem(KEY_LOCAL) || sessionStorage.getItem(KEY_SESSION) || "";
-}
-
-export function saveKey(key, remember) {
-	clearKey();
-	if (!key) return;
-	if (remember) localStorage.setItem(KEY_LOCAL, key);
-	else sessionStorage.setItem(KEY_SESSION, key);
-}
-
-export function clearKey() {
-	localStorage.removeItem(KEY_LOCAL);
-	sessionStorage.removeItem(KEY_SESSION);
-}
-
-export function keyLocation() {
-	if (localStorage.getItem(KEY_LOCAL)) return "local";
-	if (sessionStorage.getItem(KEY_SESSION)) return "session";
-	return "none";
 }
 
 export function loadLibrary() {
