@@ -2,7 +2,7 @@
 
 Une page statique pour GitHub Pages : tu saisis un sujet, la page le sonde, le planifie et le présente comme une leçon — un pas de raisonnement à la fois, chaque pas vérifié. Les sujets restent dans le navigateur et forment une base consultable.
 
-Méthode adaptée de [LearnHarness](https://github.com/amosblomqvist/learnharness). Moteur IA : [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi), auto-hébergé.
+Méthode adaptée de [LearnHarness](https://github.com/amosblomqvist/learnharness). Moteur : [OpenRouter](https://openrouter.ai), avec une clé API.
 
 ## La méthode en bref
 
@@ -13,57 +13,55 @@ Méthode adaptée de [LearnHarness](https://github.com/amosblomqvist/learnharnes
 
 Le but n'est pas la récitation : c'est que l'objectif paraisse évidemment vrai, dérivable de la structure.
 
-## Moteur : FreeLLMAPI
+## Moteur : OpenRouter
 
-La page appelle directement une instance FreeLLMAPI, compatible OpenAI :
+Une seule clé API. Aucun serveur à lancer, aucun tunnel.
 
 ```text
-POST https://ton-instance/v1/chat/completions
-Authorization: Bearer freellmapi-…
-model: auto
+POST https://openrouter.ai/api/v1/chat/completions
+Authorization: Bearer sk-or-v1-…
+model: openrouter/auto
 ```
 
-FreeLLMAPI est un routeur local qui agrège les offres gratuites de plusieurs fournisseurs. Il faut donc :
+La page appelle OpenRouter directement depuis le navigateur. La clé n'est jamais écrite dans le dépôt. Elle est stockée en `sessionStorage` par défaut, ou `localStorage` si tu coches « Mémoriser ».
 
-1. Installer et lancer FreeLLMAPI.
-2. Ajouter tes clés de fournisseurs dans son tableau de bord.
-3. Récupérer sa **clé unifiée** (`freellmapi-…`).
-4. Renseigner l'URL et la clé dans **Réglages** sur cette page.
+### Créer la clé
 
-La page ne contient aucune clé et n'appelle aucun autre service. Le seul appel réseau vers un modèle va à ton instance FreeLLMAPI.
+1. https://openrouter.ai/keys
+2. **Create key**
+3. Copier `sk-or-v1-…`
+4. Ajouter du crédit si nécessaire.
 
-### Point bloquant : GitHub Pages → localhost
+**Si une clé a été collée dans un chat, un dépôt ou une issue : révoque-la immédiatement et crée-en une nouvelle.**
 
-Une page servie en HTTPS sur GitHub Pages ne peut pas appeler `http://localhost:3001` de façon fiable : Chrome bloque les requêtes d'un site public vers l'espace local (Private Network Access).
+### Configurer le site
 
-Deux solutions :
+1. Ouvrir https://dev75008.github.io/learn/
+2. **Réglages**
+3. Coller la clé
+4. **Tester la connexion**
+5. **Enregistrer**
 
-- **Recommandé : tunnel HTTPS.** Expose FreeLLMAPI avec un tunnel (Cloudflare Tunnel, ngrok, Tailscale Funnel, VPS avec Caddy). L'URL devient `https://….example/v1`, et le problème disparaît.
-- **Test local.** Sers la page en `http://localhost:8000` : l'appel direct vers `http://localhost:3001/v1` reste dans le même espace local.
+Le modèle est `openrouter/auto`. Il est défini dans `assets/openrouter.js` :
 
-### Configuration FreeLLMAPI
-
-Dans le `.env` de FreeLLMAPI, autorise l'origine GitHub Pages :
-
-```env
-DASHBOARD_ORIGINS=https://dev75008.github.io
+```js
+export const OPENROUTER_MODEL = "openrouter/auto";
 ```
 
-Puis redémarre FreeLLMAPI. Pour un test local, ajoute aussi :
+Pour forcer un modèle, remplacer cette valeur, puis redéployer.
 
-```env
-DASHBOARD_ORIGINS=https://dev75008.github.io,http://localhost:8000
-```
+## Utiliser
 
-Exemple de tunnel Cloudflare :
+1. **Nouveau**.
+2. Écrire un sujet.
+3. **Construire la leçon**.
+4. Le sondage s'affiche ; répondre.
+5. Le plan s'affiche.
+6. **Commencer**.
+7. Chaque vérification doit être correcte avant le pas suivant. Une erreur affiche la réparation.
+8. La pratique termine la leçon.
 
-```bash
-cloudflared tunnel --url http://localhost:3001
-```
-
-Copie l'URL `https://….trycloudflare.com`, ajoute `/v1`, et mets-la dans **Réglages**.
-
-Un tunnel public expose FreeLLMAPI : la clé unifiée protège l'accès, mais ne partage pas l'URL et arrête le tunnel après usage.
+La leçon d'exemple **Pourquoi la dérivée de x² vaut 2x** fonctionne sans clé.
 
 ## Lancer en local
 
@@ -74,47 +72,25 @@ python -m http.server 8000
 
 Ouvrir `http://localhost:8000/`.
 
-Dans FreeLLMAPI, `DASHBOARD_ORIGINS=http://localhost:8000`. Dans la page : URL `http://localhost:3001/v1`, modèle `auto`, clé unifiée.
-
 Tests :
 
 ```bash
 npm test
 ```
 
-## Activer GitHub Pages
+## GitHub Pages
 
-Le dépôt est déjà publié sur `main`. Pour redéployer après une modification :
+Le dépôt est publié sur `main`. Après une modification :
 
 ```bash
 git push
 ```
 
-GitHub Pages se déclenche sur `main`. Vérifier **Settings → Pages** : source `Deploy from a branch`, branche `main`, dossier `/ (root)`.
+Vérifier **Settings → Pages** : `Deploy from a branch`, branche `main`, dossier `/ (root)`.
 
-URL : `https://dev75008.github.io/learn/`.
+URL : https://dev75008.github.io/learn/
 
 `.nojekyll` est présent. Aucun workflow n'est nécessaire.
-
-## Utiliser
-
-1. Ouvrir **Réglages**.
-2. Renseigner l'URL FreeLLMAPI, le modèle (`auto` ou `auto:smart`) et la clé unifiée.
-3. **Tester la connexion** : le nombre de modèles du catalogue s'affiche.
-4. **Enregistrer**.
-5. **Nouveau** → sujet → **Construire la leçon**.
-
-La page gère les deux phases : sondage, puis leçon. Le plan s'affiche avant le premier pas. Chaque vérification doit être correcte avant de passer au pas suivant. Une erreur affiche la réparation.
-
-La leçon d'exemple **Pourquoi la dérivée de x² vaut 2x** fonctionne sans FreeLLMAPI.
-
-## Stockage et sécurité
-
-- Clé unifiée : `sessionStorage` par défaut, `localStorage` si « Mémoriser » est coché. Jamais dans le dépôt, jamais dans les exports.
-- Sujets : `localStorage`, export/import JSON.
-- FreeLLMAPI : tes clés de fournisseurs restent dans sa base SQLite chiffrée, pas dans cette page.
-- Ne commit pas le `.env` de FreeLLMAPI.
-- Un tunnel public doit être arrêté après usage.
 
 ## Ce qui est fidèle, ce qui est simplifié
 
@@ -138,7 +114,7 @@ Simplifié pour tenir dans une page statique et deux appels :
 - `index.html` — coquille de l'application.
 - `favicon.svg` — icône.
 - `assets/app.js` — vues, état, flux sondage → leçon → pratique.
-- `assets/freellmapi.js` — client FreeLLMAPI, erreurs, test de connexion.
+- `assets/openrouter.js` — client OpenRouter, erreurs, test de clé.
 - `assets/schema.js` — validation/normalisation des leçons et du sondage.
 - `assets/prompts.js` — prompts adaptés de LearnHarness.
 - `assets/parse.js` — extraction du JSON de réponse.
@@ -146,11 +122,11 @@ Simplifié pour tenir dans une page statique et deux appels :
 - `assets/markdown.js` — rendu Markdown échappé.
 - `assets/app.css` — styles clair/sombre, responsive.
 - `data/index.json`, `data/topics/derivee-x-carre.json` — exemple.
-- `docs/freellmapi.md` — installation et dépannage.
-- `tests/` — schéma, prompts, client FreeLLMAPI, imports.
+- `docs/openrouter.md` — clé, modèle, dépannage.
+- `tests/` — schéma, prompts, client OpenRouter, imports.
 
 ## Licence
 
 AGPL-3.0. La méthode, la structure des prompts et le modèle de données sont adaptés de LearnHarness, également sous AGPL-3.0. Voir [NOTICE.md](NOTICE.md).
 
-FreeLLMAPI est un projet distinct, sous licence MIT ; cette page n'est pas affiliée à FreeLLMAPI.
+OpenRouter est un service distinct ; cette page n'est pas affiliée à OpenRouter.

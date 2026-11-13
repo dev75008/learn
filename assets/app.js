@@ -3,10 +3,10 @@
  *
  * Flux : sujet -> sondage (2 à 5 questions) -> leçon (plan + pas + vérifications)
  * -> pratique. La méthode vient de LearnHarness (AGPL-3.0), voir NOTICE.md.
- * Le moteur est FreeLLMAPI, appelé directement par le navigateur.
+ * Le moteur est OpenRouter, appelé directement par le navigateur.
  */
 
-import { FreeLlmError, requestJson, testConnection } from "./freellmapi.js";
+import { OPENROUTER_MODEL, OpenRouterError, requestJson, testConnection } from "./openrouter.js";
 import { escapeHtml, renderMarkdown } from "./markdown.js";
 import { buildLessonMessages, buildProbeMessages } from "./prompts.js";
 import { planLayers, validateLesson, validateProbe } from "./schema.js";
@@ -95,15 +95,6 @@ function filteredTopics() {
 
 function currentConfig() {
 	return { ...state.config, key: state.key };
-}
-
-function isLoopbackEndpoint(endpoint) {
-	try {
-		const host = new URL(endpoint).hostname;
-		return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
-	} catch {
-		return false;
-	}
 }
 
 function ensureProgress(topic) {
@@ -430,8 +421,6 @@ function wireSettings() {
 }
 
 function openSettings() {
-	$("#endpoint").value = state.config.endpoint;
-	$("#model").value = state.config.model;
 	$("#api-key").value = "";
 	$("#api-key").type = "password";
 	$("#toggle-key").textContent = "Afficher";
@@ -439,15 +428,15 @@ function openSettings() {
 	$("#test-status").textContent = "";
 	updateKeyStateLine();
 	settingsDialog.showModal();
-	$("#endpoint").focus();
+	$("#api-key").focus();
 }
 
 function updateKeyStateLine() {
 	const location = keyLocation();
 	const labels = {
-		local: "Clé FreeLLMAPI mémorisée dans ce navigateur (localStorage).",
-		session: "Clé FreeLLMAPI en mémoire pour cet onglet seulement (sessionStorage).",
-		none: "Aucune clé FreeLLMAPI en mémoire. Les exemples restent consultables.",
+		local: "Clé OpenRouter mémorisée dans ce navigateur (localStorage).",
+		session: "Clé OpenRouter en mémoire pour cet onglet seulement (sessionStorage).",
+		none: "Aucune clé OpenRouter en mémoire. Les exemples restent consultables.",
 	};
 	$("#key-state").textContent = labels[location];
 }
@@ -461,8 +450,7 @@ function updateKeyStatus() {
 
 function settingsFormConfig() {
 	return {
-		endpoint: $("#endpoint").value.trim() || "http://localhost:3001/v1",
-		model: $("#model").value.trim() || "auto",
+		model: OPENROUTER_MODEL,
 		key: $("#api-key").value.trim() || state.key,
 	};
 }
@@ -472,19 +460,24 @@ async function testCurrentConnection() {
 	const status = $("#test-status");
 	const button = $("#test-connection");
 	if (!config.key) {
-		status.textContent = "Ajoute d'abord la clé unifiée FreeLLMAPI.";
+		status.textContent = "Ajoute d'abord la clé OpenRouter.";
 		return;
 	}
 	button.disabled = true;
-	status.textContent = "Connexion à FreeLLMAPI…";
+	status.textContent = "Connexion à OpenRouter…";
 	try {
 		const result = await testConnection(config);
-		status.textContent =
-			result.count === null
-				? "FreeLLMAPI répond."
-				: `FreeLLMAPI répond : ${result.count} modèle(s) dans le catalogue.`;
+		const parts = ["Clé OpenRouter valide."];
+		if (result.label) parts.push(`Libellé : ${result.label}.`);
+		if (result.limit !== null) {
+			const remaining = Math.max(0, result.limit - (result.usage ?? 0));
+			parts.push(`Crédit restant : ${remaining.toFixed(2)} $.`);
+		} else if (result.freeTier) {
+			parts.push("Compte gratuit.");
+		}
+		status.textContent = parts.join(" ");
 	} catch (error) {
-		status.textContent = error instanceof FreeLlmError ? error.message : String(error?.message ?? error);
+		status.textContent = error instanceof OpenRouterError ? error.message : String(error?.message ?? error);
 	} finally {
 		button.disabled = false;
 	}
@@ -492,29 +485,13 @@ async function testCurrentConnection() {
 
 function saveSettings() {
 	const config = settingsFormConfig();
-	let url;
-	try {
-		url = new URL(config.endpoint);
-	} catch {
-		toast("URL invalide. Exemple : http://localhost:3001/v1");
-		return;
-	}
-	if (!["https:", "http:"].includes(url.protocol)) {
-		toast("L'URL doit commencer par https:// ou http://.");
-		return;
-	}
-	if (location.protocol === "https:" && url.protocol === "http:" && !["localhost", "127.0.0.1"].includes(url.hostname)) {
-		toast("Une page HTTPS ne peut pas appeler une API HTTP non locale (contenu mixte).");
-		return;
-	}
 	if (!config.key) {
-		toast("Ajoute la clé unifiée FreeLLMAPI.");
+		toast("Ajoute la clé OpenRouter.");
 		return;
 	}
 
 	state.config = {
-		endpoint: config.endpoint,
-		model: config.model,
+		model: OPENROUTER_MODEL,
 		rememberKey: $("#remember-key").checked,
 	};
 	saveConfig(state.config);
@@ -523,7 +500,7 @@ function saveSettings() {
 	updateKeyStatus();
 	updateKeyStateLine();
 	settingsDialog.close();
-	toast("Réglages FreeLLMAPI enregistrés.");
+	toast("Clé OpenRouter enregistrée.");
 }
 
 /* ── Nouveau sujet ───────────────────────────────────────────────── */
@@ -535,7 +512,6 @@ function defaultDraft() {
 function renderNew() {
 	const draft = state.draft ?? defaultDraft();
 	const hasKey = Boolean(state.key);
-	const localBlocked = hasKey && location.protocol === "https:" && isLoopbackEndpoint(state.config.endpoint);
 	view.innerHTML = `
 		<div class="view-head">
 			<p class="eyebrow">Construire</p>
@@ -544,21 +520,11 @@ function renderNew() {
 		</div>
 
 		${
-			localBlocked
-				? `<div class="notice-box">
-					<strong>URL locale détectée.</strong> GitHub Pages (HTTPS) ne peut pas appeler
-					<code>${escapeHtml(state.config.endpoint)}</code> de façon fiable. Utilise un tunnel HTTPS, ou ouvre la
-					page en local. <a href="#" data-action="open-settings">Modifier l'URL</a>.
-				</div>`
-				: ""
-		}
-
-		${
 			hasKey
 				? ""
 				: `<div class="notice-box">
-					Aucune clé FreeLLMAPI en mémoire. Tu peux lire les exemples de la base, ou configurer le routeur dans
-					<a href="#" data-action="open-settings">Réglages</a>. La clé unifiée reste dans ce navigateur.
+					Aucune clé OpenRouter en mémoire. Tu peux lire les exemples de la base, ou ajouter une clé dans
+					<a href="#" data-action="open-settings">Réglages</a>. La clé reste dans ce navigateur.
 				</div>`
 		}
 
@@ -623,7 +589,7 @@ function submitNewTopic(form) {
 		return;
 	}
 	if (!state.key) {
-		toast("Ajoute la clé FreeLLMAPI dans Réglages pour générer une leçon.");
+		toast("Ajoute la clé OpenRouter dans Réglages pour générer une leçon.");
 		openSettings();
 		return;
 	}
@@ -810,7 +776,7 @@ async function runLesson(draft, probeAnswers) {
 			id: `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
 			createdAt: now,
 			updatedAt: now,
-			origin: "freellmapi",
+			origin: "openrouter",
 			model: state.config.model,
 			level: result.lesson.level || draft.level,
 			progress: { stepIndex: 0, checks: {}, startedAt: null, completedAt: null },
@@ -833,7 +799,7 @@ async function runLesson(draft, probeAnswers) {
 }
 
 function handleGenerationError(error, title, retry) {
-	if (error instanceof FreeLlmError) {
+	if (error instanceof OpenRouterError) {
 		renderError(title, error.message, error.detail ? [error.detail] : [], retry);
 	} else {
 		renderError(title, String(error?.message ?? error), [], retry);

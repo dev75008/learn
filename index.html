@@ -11,7 +11,7 @@
 		/>
 		<meta
 			http-equiv="Content-Security-Policy"
-			content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self'"
+			content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; object-src 'none'; base-uri 'none'; form-action 'self'"
 		/>
 		<title>Base de savoir</title>
 		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -66,8 +66,8 @@
 			<p>
 				Méthode adaptée de
 				<a href="https://github.com/amosblomqvist/learnharness" rel="noopener noreferrer">LearnHarness</a>
-				(AGPL-3.0). Moteur : <a href="https://github.com/tashfeenahmed/freellmapi" rel="noopener noreferrer">FreeLLMAPI</a>,
-				auto-hébergé. La clé unifiée reste dans ce navigateur.
+				(AGPL-3.0). Moteur : <a href="https://openrouter.ai" rel="noopener noreferrer">OpenRouter</a>. La clé reste
+				dans ce navigateur.
 			</p>
 			<p class="muted">Site statique. Les sujets sont conservés dans le stockage local du navigateur.</p>
 		</footer>
@@ -77,40 +77,23 @@
 		<dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
 			<form id="settings-form" class="dialog-body" novalidate>
 				<div class="dialog-head">
-					<h2 id="settings-title">FreeLLMAPI</h2>
+					<h2 id="settings-title">OpenRouter</h2>
 					<button type="button" class="icon-button" id="settings-close" aria-label="Fermer">×</button>
 				</div>
 
 				<p class="muted small">
-					FreeLLMAPI est un routeur auto-hébergé, compatible OpenAI. La page l'appelle directement depuis ton
-					navigateur. La clé unifiée n'est jamais écrite dans le dépôt : elle reste en mémoire de l'onglet, ou
-					dans ce navigateur si tu coches la case.
+					OpenRouter est une API hébergée, compatible OpenAI. Une clé suffit. La page l'appelle directement depuis
+					ton navigateur. La clé n'est jamais écrite dans le dépôt : elle reste en mémoire de l'onglet, ou dans ce
+					navigateur si tu coches la case.
 				</p>
 
-				<div class="notice-box small">
-					<strong>Depuis GitHub Pages, Chrome bloque les appels d'une page HTTPS vers localhost</strong> (Private
-					Network Access). Utilise un tunnel HTTPS vers FreeLLMAPI, ou ouvre la page en local. Ajoute aussi
-					<code>DASHBOARD_ORIGINS=https://dev75008.github.io</code> dans FreeLLMAPI.
-				</div>
-
 				<label class="field">
-					<span>URL de base</span>
-					<input type="url" id="endpoint" spellcheck="false" placeholder="http://localhost:3001/v1" />
-					<span class="hint">Sans /chat/completions. Exemple : https://xxx.trycloudflare.com/v1</span>
-				</label>
-
-				<label class="field">
-					<span>Modèle</span>
-					<input type="text" id="model" spellcheck="false" placeholder="auto" />
-					<span class="hint">« auto » utilise ta chaîne FreeLLMAPI. « auto:smart » privilégie le raisonnement.</span>
-				</label>
-
-				<label class="field">
-					<span>Clé unifiée FreeLLMAPI</span>
+					<span>Clé API OpenRouter</span>
 					<span class="key-row">
-						<input type="password" id="api-key" spellcheck="false" autocomplete="off" placeholder="freellmapi-…" />
+						<input type="password" id="api-key" spellcheck="false" autocomplete="off" placeholder="sk-or-v1-…" />
 						<button type="button" class="ghost-button" id="toggle-key">Afficher</button>
 					</span>
+					<span class="hint">Créer une clé sur openrouter.ai/keys. Modèle utilisé : openrouter/auto.</span>
 				</label>
 
 				<label class="check">

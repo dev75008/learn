@@ -1,10 +1,10 @@
 /**
  * Persistance locale. Aucune donnée n'est envoyée à un serveur.
- * La clé unifiée FreeLLMAPI n'est jamais incluse dans la bibliothèque ni dans
- * les exports.
+ * La clé OpenRouter n'est jamais incluse dans la bibliothèque ni dans les exports.
  */
 
 import { validateLesson } from "./schema.js";
+import { OPENROUTER_MODEL } from "./openrouter.js";
 
 const LIBRARY_KEY = "lh.library.v1";
 const CONFIG_KEY = "lh.config.v1";
@@ -12,8 +12,7 @@ const KEY_SESSION = "lh.key.session";
 const KEY_LOCAL = "lh.key.local";
 
 export const DEFAULT_CONFIG = {
-	endpoint: "http://localhost:3001/v1",
-	model: "auto",
+	model: OPENROUTER_MODEL,
 	rememberKey: false,
 };
 
@@ -27,21 +26,15 @@ function parse(value, fallback) {
 
 export function loadConfig() {
 	const stored = parse(localStorage.getItem(CONFIG_KEY), {});
-	// Migration : les versions précédentes pointaient vers OpenRouter/Ox Alpha.
-	const legacy = Boolean(stored.preset) || /openrouter|oxalpha|tokenra/i.test(stored.endpoint ?? "");
 	return {
-		...DEFAULT_CONFIG,
-		...stored,
-		endpoint: !legacy && typeof stored.endpoint === "string" ? stored.endpoint : DEFAULT_CONFIG.endpoint,
-		model: !legacy && typeof stored.model === "string" ? stored.model : DEFAULT_CONFIG.model,
+		model: typeof stored.model === "string" && stored.model ? stored.model : OPENROUTER_MODEL,
 		rememberKey: stored.rememberKey === true,
 	};
 }
 
 export function saveConfig(config) {
 	const safe = {
-		endpoint: config.endpoint,
-		model: config.model,
+		model: config.model || OPENROUTER_MODEL,
 		rememberKey: config.rememberKey,
 	};
 	localStorage.setItem(CONFIG_KEY, JSON.stringify(safe));
@@ -49,7 +42,13 @@ export function saveConfig(config) {
 
 /** La clé vit en session par défaut ; en local seulement sur demande explicite. */
 export function loadKey() {
-	return localStorage.getItem(KEY_LOCAL) || sessionStorage.getItem(KEY_SESSION) || "";
+	const key = localStorage.getItem(KEY_LOCAL) || sessionStorage.getItem(KEY_SESSION) || "";
+	// Une clé FreeLLMAPI n'est pas une clé OpenRouter : on ne la réutilise pas.
+	if (key.startsWith("freellmapi-")) {
+		clearKey();
+		return "";
+	}
+	return key;
 }
 
 export function saveKey(key, remember) {

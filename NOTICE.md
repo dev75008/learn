@@ -14,10 +14,10 @@ Fichiers adaptés :
 
 Les prompts ne sont pas des copies : ils sont réécrits pour un modèle sans outils. Le texte de la méthode, l'ordre des phases et les invariants (un pas de raisonnement, une vérification par pas, réparation avant de continuer, arbre minimal) viennent de LearnHarness.
 
-## FreeLLMAPI
+## OpenRouter
 
-Le moteur est **FreeLLMAPI** (`https://github.com/tashfeenahmed/freellmapi`), un routeur auto-hébergé sous licence MIT. La page lui envoie deux requêtes OpenAI-compatibles : sondage, puis leçon.
+Le moteur est **OpenRouter** (`https://openrouter.ai`), une API hébergée compatible OpenAI. La page lui envoie deux requêtes : sondage, puis leçon. La clé API est saisie par l'utilisateur et reste dans le navigateur.
 
-Ce projet n'est affilié ni à FreeLLMAPI ni à LearnHarness. Les clés de fournisseurs restent dans l'instance FreeLLMAPI ; la page ne stocke que la clé unifiée dans le navigateur.
+Ce projet n'est affilié ni à OpenRouter ni à LearnHarness.
 
 Le présent site est distribué sous AGPL-3.0.

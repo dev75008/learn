@@ -21,12 +21,12 @@ Source principale : `docs/teaching-methodology.md` de LearnHarness, complété p
 | --- | --- | --- |
 | Format d'échange | JSON strict, validé | Un site statique n'a pas d'outils pour corriger un modèle ; le schéma refuse une leçon cassée. |
 | Phases | 2 appels : sondage, puis leçon | Le sondage doit précéder le plan pour que la leçon parte des réponses. Chaque appel reste autoportant. |
-| Transport | FreeLLMAPI, OpenAI-compatible | Un seul endpoint auto-hébergé, une clé unifiée, plusieurs fournisseurs gratuits. |
+| Transport | OpenRouter, OpenAI-compatible | Une clé hébergée, aucun serveur local. |
 | Plan | Nœuds + arêtes `requires`, rendu par niveaux | Fidèle au graphe de dépendances, sans dépendance Mermaid. |
 | Étapes | `premises` + `proposition` + `teach` + `check` + `repair` | Un pas = un fait + une vérification + une réparation. |
 | Graphe | `graph.propositions`, `graph.chains` | Reprend la structure propositions/chaînes de LearnHarness. |
 | Stockage | `localStorage`, export/import JSON | Compatible GitHub Pages, aucune infrastructure. |
-| Clé API | Clé unifiée FreeLLMAPI, navigateur seulement | Le dépôt ne contient aucun secret. |
+| Clé API | Clé OpenRouter, navigateur seulement | Le dépôt ne contient aucun secret. |
 
 ## 3. Schéma d'une leçon
 
@@ -91,7 +91,7 @@ Invariants vérifiés par `assets/schema.js` :
 ## 4. Flux dans la page
 
 1. **Sujet** : sujet, objectif, niveau, notes, option de sondage.
-2. **Sondage** (`buildProbeMessages`) : appel `POST /v1/chat/completions` à FreeLLMAPI. Le modèle produit 3 à 5 questions, une par dépendance.
+2. **Sondage** (`buildProbeMessages`) : appel `POST /v1/chat/completions` à OpenRouter. Le modèle produit 3 à 5 questions, une par dépendance.
 3. **Réponses** : l'apprenant répond, indique sa confiance et son raisonnement.
 4. **Leçon** (`buildLessonMessages`) : second appel, avec les réponses injectées. Le modèle produit plan + pas + vérifications + réparations + exercices + graphe.
 5. **Plan** : approche, carte par niveaux, liste des pas, connaissances.
@@ -101,7 +101,7 @@ Invariants vérifiés par `assets/schema.js` :
 
 ## 5. Limites assumées
 
-- FreeLLMAPI doit tourner et être joignable (CORS ; tunnel HTTPS depuis GitHub Pages).
+- OpenRouter doit être joignable et la clé valide.
 - La réparation est pré-écrite, pas adaptée à la réponse précise.
 - Le plan n'est pas réécrit pendant la leçon.
 - La pratique n'est pas corrigée par le modèle.
@@ -109,4 +109,4 @@ Invariants vérifiés par `assets/schema.js` :
 - Le modèle peut se tromper. La page ne vérifie pas les faits ; elle vérifie la structure.
 - Les offres gratuites ont des quotas et des conditions propres à chaque fournisseur.
 
-Ces limites sont le prix d'un hébergement statique et d'un routeur auto-hébergé. Le cœur de la méthode — mesure, arbre minimal, un pas vérifié à la fois, réparation avant de continuer — est conservé.
+Ces limites sont le prix d'un hébergement statique et d'un appel API hébergé. Le cœur de la méthode — mesure, arbre minimal, un pas vérifié à la fois, réparation avant de continuer — est conservé.
