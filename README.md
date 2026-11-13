@@ -98,6 +98,7 @@ Ces limites sont explicites : l'application transporte la méthode d'enseignemen
 ## Fichiers
 
 - `index.html` — coquille de l'application.
+- `favicon.svg` — icône du site.
 - `assets/app.js` — vues, état, flux prompt → sondage → prompt → leçon → pratique.
 - `assets/schema.js` — validation/normalisation des leçons et du sondage.
 - `assets/prompts.js` — prompts adaptés de LearnHarness.
